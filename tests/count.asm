@@ -1,0 +1,10 @@
+;This program counts from 10 to 0
+        .ORIG x3000
+        LEA R0, TEN
+        LDW R1, R0, #0
+START   ADD R1, R1, #-1
+        BRZ DONE
+        BR START
+DONE    TRAP x25
+TEN     .FILL x000A
+        .END
