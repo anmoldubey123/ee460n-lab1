@@ -10,6 +10,21 @@
 #include <ctype.h> /* Library for useful character operations */
 #include <limits.h> /* Library for definitions of common variable type characteristics */
 
+#define MAX_LINE_LENGTH 255
+
+enum {DONE, OK, EMPTY_LINE};
+
+#define MAX_LABEL_LEN 20
+#define MAX_SYMBOLS 255
+
+typedef struct {
+    int address;
+    char label[MAX_LABEL_LEN + 1];
+} TableEntry;
+
+TableEntry symbolTable[MAX_SYMBOLS];
+int numSymbols = 0;
+
 
 
 typedef struct {
@@ -62,16 +77,6 @@ int isOpcode(char *ptr)
    return -1;
 }
 
-int main(void)
-{
-    printf("add    -> %d\n", isOpcode("add"));
-    printf("br     -> %d\n", isOpcode("br"));
-    printf("brnzp  -> %d\n", isOpcode("brnzp"));
-    printf("start  -> %d\n", isOpcode("start"));
-    printf(".orig  -> %d\n", isOpcode(".orig"));
-    printf("ADD    -> %d\n", isOpcode("ADD"));
-    return 0;
-}
 
 int toNum( char * pStr )
 {
@@ -139,11 +144,7 @@ int toNum( char * pStr )
    }
 }
 
-#define MAX_LINE_LENGTH 255
-	enum
-	{
-	   DONE, OK, EMPTY_LINE
-	};
+
 
 	int readAndParse( FILE * pInfile, char * pLine, char ** pLabel, char
 	** pOpcode, char ** pArg1, char ** pArg2, char ** pArg3, char ** pArg4
@@ -197,3 +198,60 @@ int toNum( char * pStr )
 	}
 
 	/* Note: MAX_LINE_LENGTH, OK, EMPTY_LINE, and DONE are defined values */
+
+   int main(int argc, char *argv[])
+{
+
+    int lc = 0;
+    int startAddress = 0;
+
+
+    char lLine[MAX_LINE_LENGTH + 1];
+    char *lLabel, *lOpcode, *lArg1, *lArg2, *lArg3, *lArg4;
+    int lRet;
+
+    FILE *infile = NULL;
+    infile = fopen(argv[1], "r");
+    if(infile == NULL)
+    {
+      exit(4);
+    }
+
+    /* PASS 1 */
+    do {
+        lRet = readAndParse(infile, lLine, &lLabel, &lOpcode, &lArg1, &lArg2, &lArg3, &lArg4);
+
+        if (lRet != DONE && lRet != EMPTY_LINE) 
+        {
+            /* printf("label='%s' opcode='%s' arg1='%s' arg2='%s' arg3='%s' arg4='%s'\n", lLabel, lOpcode, lArg1, lArg2, lArg3, lArg4); */
+            if(strcmp(lOpcode, ".orig")==0)
+            {
+               lc = toNum(lArg1);
+               startAddress = lc;
+               continue;
+            }
+            if(strcmp(lOpcode, ".end")==0)
+            {
+               break;
+            }
+            if(strcmp(lLabel, "")!=0)
+            {
+               symbolTable[numSymbols].address = lc;
+               strcpy(symbolTable[numSymbols].label, lLabel);
+               numSymbols++;
+            }
+            lc+=2;
+        }
+
+    } while (lRet != DONE);
+
+    rewind(infile);
+
+    for(int i = 0; i < numSymbols; i++)
+    {
+      printf("%s  0x%.4X\n", symbolTable[i].label, symbolTable[i].address);
+    }
+
+    fclose(infile);
+    return 0;
+}
