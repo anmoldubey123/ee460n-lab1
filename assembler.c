@@ -217,6 +217,13 @@ int toNum( char * pStr )
       exit(4);
     }
 
+   FILE *outfile = NULL;
+   outfile = fopen(argv[2], "w");
+   if (outfile == NULL)
+   { 
+      exit(4); 
+   }
+
     /* PASS 1 */
     do {
         lRet = readAndParse(infile, lLine, &lLabel, &lOpcode, &lArg1, &lArg2, &lArg3, &lArg4);
@@ -247,11 +254,41 @@ int toNum( char * pStr )
 
     rewind(infile);
 
+    /* Symbol Table Test
     for(int i = 0; i < numSymbols; i++)
     {
       printf("%s  0x%.4X\n", symbolTable[i].label, symbolTable[i].address);
     }
+    */
+
+    lc = startAddress;
+    fprintf(outfile, "0x%.4X\n", startAddress);
+
+    /* PASS 2 */
+    do
+    {
+      lRet = readAndParse(infile, lLine, &lLabel, &lOpcode, &lArg1, &lArg2, &lArg3, &lArg4);
+      if(lRet != DONE && lRet != EMPTY_LINE) 
+      {
+         if(strcmp(lOpcode, ".orig")==0)
+         {
+         }
+         else if(strcmp(lOpcode, ".end")==0)
+         {
+            break;
+         }
+         else 
+         { 
+            lc+=2;
+
+         }
+
+      }
+    } while(lRet != DONE);
+
+
 
     fclose(infile);
+    fclose(outfile);
     return 0;
 }
