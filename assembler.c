@@ -277,6 +277,12 @@ int toNum( char * pStr )
          {
             break;
          }
+         else if(strcmp(lOpcode, ".fill")==0)
+         {
+            int value = toNum(lArg1) & 0xFFFF;
+            fprintf(outfile, "0x%.4X\n", value);
+            lc+=2;
+         }
          else 
          { 
             lc+=2;
