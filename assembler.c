@@ -77,6 +77,20 @@ int isOpcode(char *ptr)
    return -1;
 }
 
+int toRegister(char *ptr)
+{
+   int registerValue;
+   if(ptr[0]=='r')
+   {
+      registerValue = ptr[1] - '0';
+   }
+   else 
+   {
+      exit(4);
+   }
+   return registerValue;
+}
+
 
 int toNum( char * pStr )
 {
@@ -200,101 +214,172 @@ int toNum( char * pStr )
 	/* Note: MAX_LINE_LENGTH, OK, EMPTY_LINE, and DONE are defined values */
 
    int main(int argc, char *argv[])
-{
+   {
+      int lc = 0;
+      int startAddress = 0;
 
-    int lc = 0;
-    int startAddress = 0;
+      char lLine[MAX_LINE_LENGTH + 1];
+      char *lLabel, *lOpcode, *lArg1, *lArg2, *lArg3, *lArg4;
+      int lRet;
 
+      FILE *infile = NULL;
+      FILE *outfile = NULL;
 
-    char lLine[MAX_LINE_LENGTH + 1];
-    char *lLabel, *lOpcode, *lArg1, *lArg2, *lArg3, *lArg4;
-    int lRet;
+      infile = fopen(argv[1], "r");
+      if (infile == NULL)
+      {
+         exit(4);
+      }
 
-    FILE *infile = NULL;
-    infile = fopen(argv[1], "r");
-    if(infile == NULL)
-    {
-      exit(4);
-    }
+      outfile = fopen(argv[2], "w");
+      if (outfile == NULL)
+      {
+         exit(4);
+      }
 
-   FILE *outfile = NULL;
-   outfile = fopen(argv[2], "w");
-   if (outfile == NULL)
-   { 
-      exit(4); 
-   }
+      /* PASS 1 */
+      do
+      {
+         lRet = readAndParse(infile, lLine, &lLabel, &lOpcode, &lArg1, &lArg2, &lArg3, &lArg4);
 
-    /* PASS 1 */
-    do {
-        lRet = readAndParse(infile, lLine, &lLabel, &lOpcode, &lArg1, &lArg2, &lArg3, &lArg4);
-
-        if (lRet != DONE && lRet != EMPTY_LINE) 
-        {
-            /* printf("label='%s' opcode='%s' arg1='%s' arg2='%s' arg3='%s' arg4='%s'\n", lLabel, lOpcode, lArg1, lArg2, lArg3, lArg4); */
-            if(strcmp(lOpcode, ".orig")==0)
+         if (lRet != DONE && lRet != EMPTY_LINE)
+         {
+            if (strcmp(lOpcode, ".orig") == 0)
             {
                lc = toNum(lArg1);
                startAddress = lc;
-               continue;
             }
-            if(strcmp(lOpcode, ".end")==0)
+            else if (strcmp(lOpcode, ".end") == 0)
             {
                break;
             }
-            if(strcmp(lLabel, "")!=0)
+            else
             {
-               symbolTable[numSymbols].address = lc;
-               strcpy(symbolTable[numSymbols].label, lLabel);
-               numSymbols++;
+               if (lLabel[0] != '\0')
+               {
+                  symbolTable[numSymbols].address = lc;
+                  strcpy(symbolTable[numSymbols].label, lLabel);
+                  numSymbols++;
+               }
+               lc += 2;
             }
-            lc+=2;
-        }
+         }
+      } while (lRet != DONE);
 
-    } while (lRet != DONE);
+      rewind(infile);
 
-    rewind(infile);
+      lc = startAddress;
+      fprintf(outfile, "0x%.4X\n", startAddress);
 
-    /* Symbol Table Test
-    for(int i = 0; i < numSymbols; i++)
-    {
-      printf("%s  0x%.4X\n", symbolTable[i].label, symbolTable[i].address);
-    }
-    */
-
-    lc = startAddress;
-    fprintf(outfile, "0x%.4X\n", startAddress);
-
-    /* PASS 2 */
-    do
-    {
-      lRet = readAndParse(infile, lLine, &lLabel, &lOpcode, &lArg1, &lArg2, &lArg3, &lArg4);
-      if(lRet != DONE && lRet != EMPTY_LINE) 
+      /* PASS 2 */
+      do
       {
-         if(strcmp(lOpcode, ".orig")==0)
+         lRet = readAndParse(infile, lLine, &lLabel, &lOpcode, &lArg1, &lArg2, &lArg3, &lArg4);
+
+         if (lRet != DONE && lRet != EMPTY_LINE)
          {
+            if (strcmp(lOpcode, ".orig") == 0)
+            {
+               /* already emitted */
+            }
+            else if (strcmp(lOpcode, ".end") == 0)
+            {
+               break;
+            }
+            else if (strcmp(lOpcode, ".fill") == 0)
+            {
+               int value = toNum(lArg1) & 0xFFFF;
+               fprintf(outfile, "0x%.4X\n", value);
+               lc += 2;
+            }
+            else
+            {
+               int opIndex = isOpcode(lOpcode);
+               int instr = 0;
+
+               if (strcmp(lOpcode, "add") == 0 || strcmp(lOpcode, "and") == 0 || strcmp(lOpcode, "xor") == 0)
+               {
+                  int dr = toRegister(lArg1);
+                  int sr1 = toRegister(lArg2);
+
+                  instr = (opcodeTable[opIndex].opcode << 12) | (dr << 9) | (sr1 << 6);
+
+                  if (lArg3[0] == 'r')
+                  {
+                     instr |= toRegister(lArg3);
+                  }
+                  else
+                  {
+                     instr |= 1 << 5;
+                     instr |= toNum(lArg3) & 0x1F;
+                  }
+               }
+               else if (strcmp(lOpcode, "ldb") == 0 || strcmp(lOpcode, "ldw") == 0 || strcmp(lOpcode, "stb") == 0 || strcmp(lOpcode, "stw") == 0)
+               {
+                  int reg = toRegister(lArg1);
+                  int baseR = toRegister(lArg2);
+                  int offset = toNum(lArg3) & 0x3F;
+
+                  instr = (opcodeTable[opIndex].opcode << 12) | (reg << 9) | (baseR << 6) | offset;
+               }
+               else if (strcmp(lOpcode, "lshf") == 0 || strcmp(lOpcode, "rshfl") == 0 || strcmp(lOpcode, "rshfa") == 0)
+               {
+                  int dr = toRegister(lArg1);
+                  int sr = toRegister(lArg2);
+                  int amount = toNum(lArg3) & 0xF;
+
+                  instr = (opcodeTable[opIndex].opcode << 12) | (dr << 9) | (sr << 6) | amount;
+
+                  if (strcmp(lOpcode, "rshfl") == 0)
+                  {
+                     instr |= 1 << 4;
+                  }
+                  else if (strcmp(lOpcode, "rshfa") == 0)
+                  {
+                     instr |= 1 << 4;
+                     instr |= 1 << 5;
+                  }
+               }
+               else if (strcmp(lOpcode, "nop") == 0)
+               {
+                  instr = 0x0000;
+               }
+               else if (strcmp(lOpcode, "rti") == 0)
+               {
+                  instr = 0x8000;
+               }
+               else if (strcmp(lOpcode, "ret") == 0)
+               {
+                  instr = 0xC1C0;
+               }
+               else if (strcmp(lOpcode, "halt") == 0)
+               {
+                  instr = 0xF025;
+               }
+               else if (strcmp(lOpcode, "trap") == 0)
+               {
+                  instr = (0xF << 12) | (toNum(lArg1) & 0xFF);
+               }
+               else if (strcmp(lOpcode, "jmp") == 0)
+               {
+                  instr = (opcodeTable[opIndex].opcode << 12) | (toRegister(lArg1) << 6);
+               }
+               else if (strcmp(lOpcode, "not") == 0)
+               {
+                  instr = (opcodeTable[opIndex].opcode << 12) | (toRegister(lArg1) << 9) | (toRegister(lArg2) << 6) | 0x3F;
+               }
+               else if (strcmp(lOpcode, "jsrr") == 0)
+               {
+                  instr = (opcodeTable[opIndex].opcode << 12) | (toRegister(lArg1) << 6);
+               }
+
+               fprintf(outfile, "0x%.4X\n", instr & 0xFFFF);
+               lc += 2;
+            }
          }
-         else if(strcmp(lOpcode, ".end")==0)
-         {
-            break;
-         }
-         else if(strcmp(lOpcode, ".fill")==0)
-         {
-            int value = toNum(lArg1) & 0xFFFF;
-            fprintf(outfile, "0x%.4X\n", value);
-            lc+=2;
-         }
-         else 
-         { 
-            lc+=2;
+      } while (lRet != DONE);
 
-         }
-
-      }
-    } while(lRet != DONE);
-
-
-
-    fclose(infile);
-    fclose(outfile);
-    return 0;
-}
+      fclose(infile);
+      fclose(outfile);
+      return 0;
+   }
