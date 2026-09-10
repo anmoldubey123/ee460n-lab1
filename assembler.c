@@ -63,6 +63,19 @@ OpcodeEntry opcodeTable[] = {
     {"xor", 0x9}
 };
 
+int labelAddress(char *label)
+{
+   for(int i = 0; i<numSymbols; i++)
+   {
+      if(strcmp(symbolTable[i].label, label) == 0)
+      {
+         return symbolTable[i].address;
+      }
+   }
+
+   exit(4);
+}
+
 int isOpcode(char *ptr)
 {
    int numOpcodes = sizeof(opcodeTable)/sizeof(opcodeTable[0]);
@@ -371,6 +384,58 @@ int toNum( char * pStr )
                else if (strcmp(lOpcode, "jsrr") == 0)
                {
                   instr = (opcodeTable[opIndex].opcode << 12) | (toRegister(lArg1) << 6);
+               }
+               else if (strcmp(lOpcode, "lea") == 0)
+               {
+                  int dr = toRegister(lArg1);
+                  int offset = (labelAddress(lArg2) - (lc + 2)) / 2;
+
+                  instr = (opcodeTable[opIndex].opcode << 12) | (dr << 9) | (offset & 0x1FF);
+               }
+               else if (strcmp(lOpcode, "brn") == 0)
+               {
+                  int offset = (labelAddress(lArg1) - (lc + 2)) / 2;
+                  instr = (4 << 9) | (offset & 0x1FF);
+               }
+               else if (strcmp(lOpcode, "brz") == 0)
+               {
+                  int offset = (labelAddress(lArg1) - (lc + 2)) / 2;
+                  instr = (2 << 9) | (offset & 0x1FF);
+               }
+               else if (strcmp(lOpcode, "brp") == 0)
+               {
+                  int offset = (labelAddress(lArg1) - (lc + 2)) / 2;
+                  instr = (1 << 9) | (offset & 0x1FF);
+               }
+               else if (strcmp(lOpcode, "brnz") == 0)
+               {
+                  int offset = (labelAddress(lArg1) - (lc + 2)) / 2;
+                  instr = (6 << 9) | (offset & 0x1FF);
+               }
+               else if (strcmp(lOpcode, "brnp") == 0)
+               {
+                  int offset = (labelAddress(lArg1) - (lc + 2)) / 2;
+                  instr = (5 << 9) | (offset & 0x1FF);
+               }
+               else if (strcmp(lOpcode, "brzp") == 0)
+               {
+                  int offset = (labelAddress(lArg1) - (lc + 2)) / 2;
+                  instr = (3 << 9) | (offset & 0x1FF);
+               }
+               else if (strcmp(lOpcode, "brnzp") == 0)
+               {
+                  int offset = (labelAddress(lArg1) - (lc + 2)) / 2;
+                  instr = (7 << 9) | (offset & 0x1FF);
+               }
+               else if (strcmp(lOpcode, "br") == 0)
+               {
+                  int offset = (labelAddress(lArg1) - (lc + 2)) / 2;
+                  instr = (7 << 9) | (offset & 0x1FF);
+               }
+               else if (strcmp(lOpcode, "jsr") == 0)
+               {
+                  int offset = (labelAddress(lArg1) - (lc + 2)) / 2;
+                  instr = (opcodeTable[opIndex].opcode << 12) | (1 << 11) | (offset & 0x7FF);
                }
 
                fprintf(outfile, "0x%.4X\n", instr & 0xFFFF);
