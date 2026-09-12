@@ -1,0 +1,4 @@
+        .ORIG x3000
+TARGET  HALT
+PTR     .FILL TARGET
+        .END
