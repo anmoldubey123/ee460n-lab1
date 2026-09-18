@@ -9,8 +9,8 @@
         AND R4, R4, #0
 
         ;load operands
-        LDB R1, R0, #0  ; r2 <- m[x3100] loading first operand
-        LDB R2, R0, #1 ; r1 <- m[x3101] loading second operand
+        LDB R1, R0, #0  ; r1 <- m[x3100] loading first operand
+        LDB R2, R0, #1 ; r2 <- m[x3101] loading second operand
         BRz DONE
 
 
